@@ -23,6 +23,7 @@ Install deps first:
 """
 
 import asyncio
+import csv
 import json
 import struct
 import sys
@@ -38,8 +39,8 @@ from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
     QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
-    QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
-    QSizePolicy, QStatusBar, QTableWidget, QTableWidgetItem,
+    QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
+    QSizePolicy, QSpinBox, QStatusBar, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
 
@@ -308,12 +309,21 @@ class HistoryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Workout History")
         self.setStyleSheet(f"background:{BG};color:{COL_WHITE};")
-        self.resize(880, 420)
+        self.resize(1100, 460)
 
         lay = QVBoxLayout(self)
-        cols = ["Date", "Duration", "Distance", "Calories",
-                "Avg W", "Max W", "Avg W/kg", "Avg RPM", "Max RPM"]
+        lay.setSpacing(10)
 
+        # ── Tab bar: table vs CSV location ───────────────────────────────────
+        info = QLabel(f"Files saved to:  {WORKOUTS_DIR}")
+        info.setStyleSheet(f"color:{COL_MUTED};font-size:11px;")
+        lay.addWidget(info)
+
+        cols = [
+            "Date", "Label", "Type", "Duration",
+            "Distance", "Calories", "Avg W", "Max W",
+            "Avg W/kg", "Avg RPM", "Notes",
+        ]
         tbl = QTableWidget()
         tbl.setColumnCount(len(cols))
         tbl.setHorizontalHeaderLabels(cols)
@@ -329,7 +339,10 @@ class HistoryDialog(QDialog):
             }}
             QTableWidget::item:selected {{background:#2a2a5a;}}
         """)
-        tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)   # Label stretches
+        hdr.setSectionResizeMode(10, QHeaderView.ResizeMode.Stretch)  # Notes stretches
         tbl.verticalHeader().setVisible(False)
         tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -338,7 +351,7 @@ class HistoryDialog(QDialog):
         files = sorted(WORKOUTS_DIR.glob("workout_*.json"), reverse=True) \
                 if WORKOUTS_DIR.exists() else []
 
-        for f in files[:60]:
+        for f in files[:80]:
             try:
                 s = json.loads(f.read_text()).get("summary", {})
             except Exception:
@@ -346,32 +359,48 @@ class HistoryDialog(QDialog):
             row = tbl.rowCount()
             tbl.insertRow(row)
 
-            def cell(v, color=COL_WHITE):
+            def cell(v, color=COL_WHITE, align=Qt.AlignmentFlag.AlignCenter):
                 it = QTableWidgetItem(str(v))
-                it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                it.setTextAlignment(align)
                 it.setForeground(QColor(color))
                 return it
 
             dur  = s.get("duration_seconds")
             dist = s.get("distance_m")
-            tbl.setItem(row, 0, cell(s.get("date", "")[:19].replace("T", " "), COL_MUTED))
-            tbl.setItem(row, 1, cell(f"{int(dur)//60}:{int(dur)%60:02d}" if dur else "--"))
-            tbl.setItem(row, 2, cell(f"{dist/1000:.2f} km" if dist else "--"))
-            tbl.setItem(row, 3, cell(f"{s['total_calories']:.0f}" if s.get("total_calories") else "--", COL_CALS))
-            tbl.setItem(row, 4, cell(f"{s['avg_power_w']}" if s.get("avg_power_w") else "--", COL_POWER))
-            tbl.setItem(row, 5, cell(f"{s['max_power_w']}" if s.get("max_power_w") else "--", COL_POWER))
-            tbl.setItem(row, 6, cell(f"{s['avg_wkg']}" if s.get("avg_wkg") else "--", COL_WKG))
-            tbl.setItem(row, 7, cell(f"{s['avg_cadence_rpm']}" if s.get("avg_cadence_rpm") else "--", COL_CADENCE))
-            tbl.setItem(row, 8, cell(f"{s['max_cadence_rpm']}" if s.get("max_cadence_rpm") else "--", COL_CADENCE))
+            dur_str = (f"{int(dur)//3600:02d}:{(int(dur)%3600)//60:02d}:{int(dur)%60:02d}"
+                       if dur else "--")
+
+            tbl.setItem(row,  0, cell(s.get("date", "")[:19].replace("T", " "), COL_MUTED))
+            tbl.setItem(row,  1, cell(s.get("label", "") or "--",
+                                      align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter))
+            tbl.setItem(row,  2, cell(s.get("type", "--")))
+            tbl.setItem(row,  3, cell(dur_str))
+            tbl.setItem(row,  4, cell(f"{dist/1000:.2f} km" if dist else "--"))
+            tbl.setItem(row,  5, cell(f"{s['total_calories']:.0f}" if s.get("total_calories") else "--", COL_CALS))
+            tbl.setItem(row,  6, cell(f"{s['avg_power_w']}" if s.get("avg_power_w") else "--", COL_POWER))
+            tbl.setItem(row,  7, cell(f"{s['max_power_w']}" if s.get("max_power_w") else "--", COL_POWER))
+            tbl.setItem(row,  8, cell(f"{s['avg_wkg']}" if s.get("avg_wkg") else "--", COL_WKG))
+            tbl.setItem(row,  9, cell(f"{s['avg_cadence_rpm']}" if s.get("avg_cadence_rpm") else "--", COL_CADENCE))
+            tbl.setItem(row, 10, cell(s.get("notes", "") or "",
+                                      align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter))
 
         lay.addWidget(tbl)
         if not files:
             lay.addWidget(QLabel("No workouts saved yet."))
 
+        btn_row = QHBoxLayout()
+        open_btn = QPushButton("📂  Open Folder")
+        open_btn.setStyleSheet(_btn_style(COL_DIST, 140))
+        open_btn.clicked.connect(lambda: __import__("subprocess").run(
+            ["open", str(WORKOUTS_DIR)], check=False
+        ))
+        btn_row.addWidget(open_btn)
+        btn_row.addStretch()
         close_btn = QPushButton("Close")
-        close_btn.setStyleSheet(_btn_style(COL_MUTED, 120))
+        close_btn.setStyleSheet(_btn_style(COL_MUTED, 100))
         close_btn.clicked.connect(self.accept)
-        lay.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        btn_row.addWidget(close_btn)
+        lay.addLayout(btn_row)
 
 
 # ─── Button style helper ──────────────────────────────────────────────────────
@@ -406,6 +435,13 @@ class EchoBikeWindow(QMainWindow):
         self._weight_kg:    float      = 75.0
         self._device_name:  str        = ""
         self._scan_results: list[tuple[str, str]] = []
+
+        # Workout metadata (filled in setup panel before connecting)
+        self._workout_label:  str   = ""
+        self._workout_type:   str   = "Free Ride"
+        self._workout_notes:  str   = ""
+        self._target_type:    str   = "None"
+        self._target_value:   float = 0.0
 
         self._t_buf       = deque(maxlen=MAX_CHART_POINTS)
         self._power_buf   = deque(maxlen=MAX_CHART_POINTS)
@@ -447,6 +483,7 @@ class EchoBikeWindow(QMainWindow):
         lay.setContentsMargins(18, 14, 18, 14)
         lay.setSpacing(14)
         lay.addLayout(self._build_header())
+        lay.addWidget(self._build_workout_setup())
         lay.addLayout(self._build_cards(),        stretch=2)
         lay.addWidget(self._build_chart_panel(),  stretch=3)
         lay.addLayout(self._build_controls())
@@ -504,6 +541,101 @@ class EchoBikeWindow(QMainWindow):
         self._weight_spin.valueChanged.connect(lambda v: setattr(self, "_weight_kg", v))
         row.addWidget(self._weight_spin)
         return row
+
+    def _build_workout_setup(self) -> QFrame:
+        frame = QFrame()
+        frame.setStyleSheet(
+            f"QFrame{{background:{CARD_BG};border:1px solid {CARD_BORDER};border-radius:10px;}}"
+        )
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(14, 8, 14, 8)
+        row.setSpacing(16)
+
+        lbl_style = f"color:{COL_MUTED};font-size:11px;font-weight:700;letter-spacing:1px;"
+        field_style = f"""
+            QLineEdit, QComboBox, QSpinBox {{
+                background:#0d0d1a;color:{COL_WHITE};
+                border:1px solid {CARD_BORDER};border-radius:6px;
+                padding:3px 8px;font-size:12px;
+            }}
+            QComboBox::drop-down {{border:none;width:14px;}}
+            QComboBox QAbstractItemView {{
+                background:#1a1a38;color:{COL_WHITE};
+                selection-background-color:{COL_POWER};
+            }}
+        """
+
+        # Label
+        row.addWidget(self._muted_label("LABEL"))
+        self._lbl_input = QLineEdit()
+        self._lbl_input.setPlaceholderText("e.g. Morning HIIT")
+        self._lbl_input.setFixedWidth(160)
+        self._lbl_input.setStyleSheet(field_style)
+        self._lbl_input.textChanged.connect(lambda t: setattr(self, "_workout_label", t))
+        row.addWidget(self._lbl_input)
+
+        # Type
+        row.addWidget(self._muted_label("TYPE"))
+        self._type_combo = QComboBox()
+        self._type_combo.addItems([
+            "Free Ride", "HIIT", "Steady State", "Intervals",
+            "Threshold", "Recovery", "Race", "Test", "Custom",
+        ])
+        self._type_combo.setFixedWidth(130)
+        self._type_combo.setStyleSheet(field_style)
+        self._type_combo.currentTextChanged.connect(lambda t: setattr(self, "_workout_type", t))
+        row.addWidget(self._type_combo)
+
+        # Notes
+        row.addWidget(self._muted_label("NOTES"))
+        self._notes_input = QLineEdit()
+        self._notes_input.setPlaceholderText("Optional notes…")
+        self._notes_input.setStyleSheet(field_style)
+        self._notes_input.textChanged.connect(lambda t: setattr(self, "_workout_notes", t))
+        row.addWidget(self._notes_input, stretch=1)
+
+        # Target type
+        row.addWidget(self._muted_label("TARGET"))
+        self._target_combo = QComboBox()
+        self._target_combo.addItems(["None", "Time (min)", "Distance (km)", "Calories", "Power (W)"])
+        self._target_combo.setFixedWidth(130)
+        self._target_combo.setStyleSheet(field_style)
+        self._target_combo.currentTextChanged.connect(self._on_target_type_changed)
+        row.addWidget(self._target_combo)
+
+        # Target value
+        self._target_spin = QSpinBox()
+        self._target_spin.setRange(0, 9999)
+        self._target_spin.setValue(0)
+        self._target_spin.setFixedWidth(80)
+        self._target_spin.setStyleSheet(field_style)
+        self._target_spin.setEnabled(False)
+        self._target_spin.valueChanged.connect(lambda v: setattr(self, "_target_value", float(v)))
+        row.addWidget(self._target_spin)
+
+        return frame
+
+    def _muted_label(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(
+            f"color:{COL_MUTED};font-size:10px;font-weight:700;"
+            f"letter-spacing:1px;border:none;background:transparent;"
+        )
+        return lbl
+
+    def _on_target_type_changed(self, text: str):
+        self._target_type = text
+        self._target_spin.setEnabled(text != "None")
+        hints = {
+            "None": (0, 9999, 0),
+            "Time (min)": (1, 300, 20),
+            "Distance (km)": (1, 200, 5),
+            "Calories": (50, 5000, 500),
+            "Power (W)": (50, 1000, 200),
+        }
+        lo, hi, default = hints.get(text, (0, 9999, 0))
+        self._target_spin.setRange(lo, hi)
+        self._target_spin.setValue(default)
 
     def _build_cards(self) -> QGridLayout:
         grid = QGridLayout()
@@ -821,15 +953,22 @@ class EchoBikeWindow(QMainWindow):
         self._ble.disconnect()
 
     def _on_save(self):
-        path = self._save_workout()
-        if path:
-            QMessageBox.information(self, "Saved", f"Workout saved to:\n{path}")
+        result = self._save_workout()
+        if result:
+            json_path, csv_path, history_path = result
+            QMessageBox.information(
+                self, "Workout Saved",
+                f"Session data:\n  {csv_path.name}\n\n"
+                f"Full JSON:\n  {json_path.name}\n\n"
+                f"History log:\n  {history_path.name}\n\n"
+                f"All saved to:\n  {WORKOUTS_DIR}",
+            )
 
-    def _save_workout(self) -> Path | None:
+    def _save_workout(self) -> tuple[Path, Path, Path] | None:
         if not self._session_data:
             return None
         WORKOUTS_DIR.mkdir(parents=True, exist_ok=True)
-        path = WORKOUTS_DIR / f"workout_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        ts_str = (self._start_time or datetime.now()).strftime("%Y%m%d_%H%M%S")
 
         powers   = [d["power_w"]     for d in self._session_data if "power_w"     in d]
         cadences = [d["cadence_rpm"] for d in self._session_data if "cadence_rpm" in d]
@@ -839,6 +978,11 @@ class EchoBikeWindow(QMainWindow):
         )
         summary = {
             "date":             (self._start_time or datetime.now()).isoformat(),
+            "label":            self._workout_label or "",
+            "type":             self._workout_type,
+            "notes":            self._workout_notes or "",
+            "target_type":      self._target_type,
+            "target_value":     self._target_value if self._target_type != "None" else None,
             "device":           self._device_name,
             "weight_kg":        self._weight_kg,
             "duration_seconds": dur,
@@ -852,16 +996,88 @@ class EchoBikeWindow(QMainWindow):
             "max_cadence_rpm":  max(cadences)                           if cadences else None,
             "samples":          len(self._session_data),
         }
-        path.write_text(json.dumps({"summary": summary, "data": self._session_data}, indent=2))
-        self._status.showMessage(f"Saved  →  {path}")
-        return path
+
+        # JSON (full data)
+        json_path = WORKOUTS_DIR / f"workout_{ts_str}.json"
+        json_path.write_text(json.dumps({"summary": summary, "data": self._session_data}, indent=2))
+
+        # CSVs
+        csv_path, history_path = self._save_csv(ts_str, summary)
+
+        self._status.showMessage(f"Saved  →  {csv_path.name}  |  {history_path.name}")
+        return json_path, csv_path, history_path
+
+    def _save_csv(self, ts_str: str, summary: dict) -> tuple[Path, Path]:
+        """Write per-session data CSV and append a row to the cumulative history CSV."""
+
+        # ── Per-session data CSV ──────────────────────────────────────────────
+        data_path = WORKOUTS_DIR / f"workout_{ts_str}.csv"
+        data_cols = [
+            "timestamp", "elapsed_s", "power_w", "cadence_rpm",
+            "speed_kmh", "heart_rate", "distance_m", "calories", "wkg",
+        ]
+        with data_path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=data_cols, extrasaction="ignore")
+            writer.writeheader()
+            for d in self._session_data:
+                pw = d.get("power_w")
+                writer.writerow({
+                    "timestamp":   d.get("ts", ""),
+                    "elapsed_s":   d.get("elapsed_seconds", ""),
+                    "power_w":     pw if pw is not None else "",
+                    "cadence_rpm": d.get("cadence_rpm", ""),
+                    "speed_kmh":   d.get("speed_kmh", ""),
+                    "heart_rate":  d.get("heart_rate", ""),
+                    "distance_m":  d.get("distance_m", ""),
+                    "calories":    d.get("calories", ""),
+                    "wkg":         round(pw / self._weight_kg, 3)
+                                   if pw is not None and self._weight_kg else "",
+                })
+
+        # ── Cumulative history CSV (one row per workout, appended) ────────────
+        history_path = WORKOUTS_DIR / "workout_history.csv"
+        history_cols = [
+            "date", "label", "type", "notes",
+            "duration_s", "distance_km", "calories",
+            "avg_power_w", "max_power_w", "avg_wkg",
+            "avg_cadence_rpm", "max_cadence_rpm",
+            "weight_kg", "target_type", "target_value",
+            "device", "samples",
+        ]
+        write_header = not history_path.exists()
+        with history_path.open("a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=history_cols)
+            if write_header:
+                writer.writeheader()
+            dist = summary.get("distance_m")
+            writer.writerow({
+                "date":             summary.get("date", "")[:19].replace("T", " "),
+                "label":            summary.get("label", ""),
+                "type":             summary.get("type", ""),
+                "notes":            summary.get("notes", ""),
+                "duration_s":       round(summary["duration_seconds"], 1) if summary.get("duration_seconds") else "",
+                "distance_km":      round(dist / 1000, 3) if dist else "",
+                "calories":         summary.get("total_calories", ""),
+                "avg_power_w":      summary.get("avg_power_w", ""),
+                "max_power_w":      summary.get("max_power_w", ""),
+                "avg_wkg":          summary.get("avg_wkg", ""),
+                "avg_cadence_rpm":  summary.get("avg_cadence_rpm", ""),
+                "max_cadence_rpm":  summary.get("max_cadence_rpm", ""),
+                "weight_kg":        summary.get("weight_kg", ""),
+                "target_type":      summary.get("target_type", ""),
+                "target_value":     summary.get("target_value", ""),
+                "device":           summary.get("device", ""),
+                "samples":          summary.get("samples", ""),
+            })
+
+        return data_path, history_path
 
     def _on_history(self):
         HistoryDialog(self).exec()
 
     def closeEvent(self, event):
         if self._session_data:
-            self._save_workout()
+            self._save_workout()   # auto-save on close, ignore return value
         self._ble.disconnect()
         event.accept()
 
