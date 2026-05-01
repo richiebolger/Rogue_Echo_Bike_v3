@@ -320,7 +320,7 @@ class HistoryDialog(QDialog):
         lay.addWidget(info)
 
         cols = [
-            "Date", "Label", "Type", "Duration",
+            "Date", "Rider", "Label", "Type", "Duration",
             "Distance", "Calories", "Avg W", "Max W",
             "Avg W/kg", "Avg RPM", "Notes",
         ]
@@ -341,8 +341,8 @@ class HistoryDialog(QDialog):
         """)
         hdr = tbl.horizontalHeader()
         hdr.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)   # Label stretches
-        hdr.setSectionResizeMode(10, QHeaderView.ResizeMode.Stretch)  # Notes stretches
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)   # Label stretches
+        hdr.setSectionResizeMode(11, QHeaderView.ResizeMode.Stretch)  # Notes stretches
         tbl.verticalHeader().setVisible(False)
         tbl.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         tbl.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -370,19 +370,19 @@ class HistoryDialog(QDialog):
             dur_str = (f"{int(dur)//3600:02d}:{(int(dur)%3600)//60:02d}:{int(dur)%60:02d}"
                        if dur else "--")
 
+            left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
             tbl.setItem(row,  0, cell(s.get("date", "")[:19].replace("T", " "), COL_MUTED))
-            tbl.setItem(row,  1, cell(s.get("label", "") or "--",
-                                      align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter))
-            tbl.setItem(row,  2, cell(s.get("type", "--")))
-            tbl.setItem(row,  3, cell(dur_str))
-            tbl.setItem(row,  4, cell(f"{dist/1000:.2f} km" if dist else "--"))
-            tbl.setItem(row,  5, cell(f"{s['total_calories']:.0f}" if s.get("total_calories") else "--", COL_CALS))
-            tbl.setItem(row,  6, cell(f"{s['avg_power_w']}" if s.get("avg_power_w") else "--", COL_POWER))
-            tbl.setItem(row,  7, cell(f"{s['max_power_w']}" if s.get("max_power_w") else "--", COL_POWER))
-            tbl.setItem(row,  8, cell(f"{s['avg_wkg']}" if s.get("avg_wkg") else "--", COL_WKG))
-            tbl.setItem(row,  9, cell(f"{s['avg_cadence_rpm']}" if s.get("avg_cadence_rpm") else "--", COL_CADENCE))
-            tbl.setItem(row, 10, cell(s.get("notes", "") or "",
-                                      align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter))
+            tbl.setItem(row,  1, cell(s.get("rider", "") or "--"))
+            tbl.setItem(row,  2, cell(s.get("label", "") or "--", align=left))
+            tbl.setItem(row,  3, cell(s.get("type", "--")))
+            tbl.setItem(row,  4, cell(dur_str))
+            tbl.setItem(row,  5, cell(f"{dist/1000:.2f} km" if dist else "--"))
+            tbl.setItem(row,  6, cell(f"{s['total_calories']:.0f}" if s.get("total_calories") else "--", COL_CALS))
+            tbl.setItem(row,  7, cell(f"{s['avg_power_w']}" if s.get("avg_power_w") else "--", COL_POWER))
+            tbl.setItem(row,  8, cell(f"{s['max_power_w']}" if s.get("max_power_w") else "--", COL_POWER))
+            tbl.setItem(row,  9, cell(f"{s['avg_wkg']}" if s.get("avg_wkg") else "--", COL_WKG))
+            tbl.setItem(row, 10, cell(f"{s['avg_cadence_rpm']}" if s.get("avg_cadence_rpm") else "--", COL_CADENCE))
+            tbl.setItem(row, 11, cell(s.get("notes", "") or "", align=left))
 
         lay.addWidget(tbl)
         if not files:
@@ -437,6 +437,7 @@ class EchoBikeWindow(QMainWindow):
         self._scan_results: list[tuple[str, str]] = []
 
         # Workout metadata (filled in setup panel before connecting)
+        self._rider_name:     str   = ""
         self._workout_label:  str   = ""
         self._workout_type:   str   = "Free Ride"
         self._workout_notes:  str   = ""
@@ -564,6 +565,15 @@ class EchoBikeWindow(QMainWindow):
                 selection-background-color:{COL_POWER};
             }}
         """
+
+        # Rider name
+        row.addWidget(self._muted_label("RIDER"))
+        self._name_input = QLineEdit()
+        self._name_input.setPlaceholderText("Your name")
+        self._name_input.setFixedWidth(130)
+        self._name_input.setStyleSheet(field_style)
+        self._name_input.textChanged.connect(lambda t: setattr(self, "_rider_name", t))
+        row.addWidget(self._name_input)
 
         # Label
         row.addWidget(self._muted_label("LABEL"))
@@ -978,6 +988,7 @@ class EchoBikeWindow(QMainWindow):
         )
         summary = {
             "date":             (self._start_time or datetime.now()).isoformat(),
+            "rider":            self._rider_name or "",
             "label":            self._workout_label or "",
             "type":             self._workout_type,
             "notes":            self._workout_notes or "",
@@ -1037,7 +1048,7 @@ class EchoBikeWindow(QMainWindow):
         # ── Cumulative history CSV (one row per workout, appended) ────────────
         history_path = WORKOUTS_DIR / "workout_history.csv"
         history_cols = [
-            "date", "label", "type", "notes",
+            "date", "rider", "label", "type", "notes",
             "duration_s", "distance_km", "calories",
             "avg_power_w", "max_power_w", "avg_wkg",
             "avg_cadence_rpm", "max_cadence_rpm",
@@ -1052,6 +1063,7 @@ class EchoBikeWindow(QMainWindow):
             dist = summary.get("distance_m")
             writer.writerow({
                 "date":             summary.get("date", "")[:19].replace("T", " "),
+                "rider":            summary.get("rider", ""),
                 "label":            summary.get("label", ""),
                 "type":             summary.get("type", ""),
                 "notes":            summary.get("notes", ""),
