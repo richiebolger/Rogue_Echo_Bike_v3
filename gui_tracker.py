@@ -105,13 +105,30 @@ def get_hr_zone(hr: int, resting: int, max_hr: int) -> tuple[int, str, str]:
             return i, name, col
     return len(HR_ZONES)-1, HR_ZONES[-1][2], HR_ZONES[-1][3]
 
-def vo2max_from_power(avg_w: float, weight_kg: float) -> float:
-    if weight_kg <= 0: return 0.0
-    return round((avg_w * 10.8 / weight_kg) + 7, 1)
+def vo2max_from_ftp(ftp_w: float, weight_kg: float) -> float:
+    """Hawley & Noakes via Coggan: MAP = FTP/0.76; VO2max = (MAP×10.8/weight)+7"""
+    if weight_kg <= 0 or ftp_w <= 0: return 0.0
+    map_w = ftp_w / 0.76
+    return round((map_w * 10.8 / weight_kg) + 7, 1)
 
 def vo2max_from_hr(max_hr: int, resting_hr: int) -> float:
-    if resting_hr <= 0: return 0.0
+    """Uth–Sørensen formula: VO2max ≈ 15 × (HRmax / HRrest)"""
+    if resting_hr <= 0 or max_hr <= 0: return 0.0
     return round(15 * max_hr / resting_hr, 1)
+
+def vo2max_classification(v: float) -> tuple[str, str]:
+    """Returns (label, colour) for a VO2max value."""
+    for lo, hi, label, col in [
+        (0,  30, "Poor",          "#ff4757"),
+        (30, 38, "Below average", "#fd79a8"),
+        (38, 46, "Average",       "#ffd32a"),
+        (46, 54, "Good",          "#00e676"),
+        (54, 62, "Very good",     "#00d4ff"),
+        (62, 999,"Excellent",     "#a29bfe"),
+    ]:
+        if v < hi:
+            return label, col
+    return "Excellent", "#a29bfe"
 
 # ─── Rider profiles ───────────────────────────────────────────────────────────
 RIDER_NAMES = ["Clare", "Richie", "Ross", "Guest"]
@@ -765,27 +782,53 @@ class PostWorkoutSummaryDialog(QDialog):
         v2_hdr.setStyleSheet(f"color:{COL_MUTED};font-size:10px;font-weight:700;letter-spacing:1px;")
         lay.addWidget(v2_hdr)
 
-        avg_p  = summary.get("avg_power_w")
-        max_p  = summary.get("max_power_w")
-        max_hr = summary.get("max_hr")
-        wt     = profile.get("weight_kg", 75)
-        rest   = profile.get("resting_hr", 60)
-        mhr    = _profile_max_hr(profile)
+        ftp     = profile.get("ftp_w", 0)
+        wt      = profile.get("weight_kg", 75)
+        rest    = profile.get("resting_hr", 60)
+        prof_mhr = _profile_max_hr(profile)
+        # Use the higher of session-recorded max HR vs age-predicted — actual measurement wins
+        sess_mhr = summary.get("max_hr") or 0
+        best_mhr = max(sess_mhr, prof_mhr)
+        mhr_source = "recorded session max" if sess_mhr >= prof_mhr else f"estimated (220−age)"
 
-        if avg_p:
-            v2p = vo2max_from_power(avg_p, wt)
-            r1  = QLabel(f"Power-based (avg session power):  {v2p} ml/kg/min")
-            r1.setStyleSheet(f"color:{COL_POWER};font-size:13px;font-weight:700;")
-            lay.addWidget(r1)
-        if rest > 0:
-            v2h = vo2max_from_hr(mhr, rest)
-            r2  = QLabel(f"HR-based (Uth formula, max HR {mhr}):  {v2h} ml/kg/min")
-            r2.setStyleSheet(f"color:{COL_HR};font-size:13px;font-weight:700;")
-            lay.addWidget(r2)
+        shown_any = False
+
+        if ftp > 0:
+            v2p = vo2max_from_ftp(ftp, wt)
+            cls, cls_col = vo2max_classification(v2p)
+            ftp_wkg = round(ftp / wt, 2)
+            row = QHBoxLayout()
+            lbl = QLabel(f"Power  {v2p} ml/kg/min")
+            lbl.setStyleSheet(f"color:{COL_POWER};font-size:14px;font-weight:800;")
+            cls_lbl = QLabel(f"  {cls}")
+            cls_lbl.setStyleSheet(f"color:{cls_col};font-size:13px;font-weight:700;")
+            src_lbl = QLabel(f"   via FTP {ftp} W  ({ftp_wkg} W/kg)")
+            src_lbl.setStyleSheet(f"color:{COL_MUTED};font-size:11px;")
+            row.addWidget(lbl); row.addWidget(cls_lbl); row.addWidget(src_lbl); row.addStretch()
+            lay.addLayout(row)
+            shown_any = True
+
+        if rest > 0 and best_mhr > rest:
+            v2h = vo2max_from_hr(best_mhr, rest)
+            cls, cls_col = vo2max_classification(v2h)
+            row = QHBoxLayout()
+            lbl = QLabel(f"HR      {v2h} ml/kg/min")
+            lbl.setStyleSheet(f"color:{COL_HR};font-size:14px;font-weight:800;")
+            cls_lbl = QLabel(f"  {cls}")
+            cls_lbl.setStyleSheet(f"color:{cls_col};font-size:13px;font-weight:700;")
+            src_lbl = QLabel(f"   max HR {best_mhr} bpm ({mhr_source}), rest {rest} bpm")
+            src_lbl.setStyleSheet(f"color:{COL_MUTED};font-size:11px;")
+            row.addWidget(lbl); row.addWidget(cls_lbl); row.addWidget(src_lbl); row.addStretch()
+            lay.addLayout(row)
+            shown_any = True
+
+        if not shown_any:
+            lay.addWidget(QLabel("Set your FTP and resting HR in the profile (⚙) to see estimates."))
 
         note = QLabel(
-            "Estimates only — power formula is most meaningful during max-effort sessions.\n"
-            "HR formula uses profile max HR. Lab testing gives the most accurate result."
+            "Power estimate: uses your FTP via Coggan / Hawley & Noakes (MAP = FTP ÷ 0.76).\n"
+            "HR estimate: Uth–Sørensen formula — uses the higher of session-recorded or age-predicted max HR.\n"
+            "Both are estimates. Lab VO2max testing gives the most accurate result."
         )
         note.setStyleSheet(f"color:{COL_MUTED};font-size:10px;"); note.setWordWrap(True)
         lay.addWidget(note); lay.addStretch()
