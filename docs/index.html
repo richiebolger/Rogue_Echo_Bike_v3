@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Echo Bike Tracker — macOS App for Rogue Echo Bike</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0d0d1a; color: #e8ecff;
+    line-height: 1.7;
+  }
+  .hero {
+    padding: 80px 24px 60px;
+    text-align: center;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,107,53,0.12), transparent 70%);
+  }
+  .badge {
+    display: inline-block; background: #ff6b3520; color: #ff6b35;
+    border: 1px solid #ff6b3560; border-radius: 20px;
+    padding: 4px 14px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px;
+  }
+  h1 { font-size: clamp(32px, 6vw, 56px); font-weight: 900; color: #fff;
+       letter-spacing: -0.02em; margin-bottom: 16px; }
+  h1 span { color: #ff6b35; }
+  .hero p { font-size: 18px; color: #9098c0; max-width: 560px; margin: 0 auto 36px; }
+  .btn {
+    display: inline-block; background: #ff6b35; color: #000;
+    text-decoration: none; font-weight: 800; font-size: 15px;
+    padding: 14px 32px; border-radius: 12px; margin: 6px;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn.ghost {
+    background: transparent; color: #ff6b35;
+    border: 1.5px solid #ff6b3560;
+  }
+  .features {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px; max-width: 980px; margin: 60px auto; padding: 0 24px;
+  }
+  .card {
+    background: #14142a; border: 1px solid #252545;
+    border-radius: 14px; padding: 24px;
+  }
+  .card .icon { font-size: 28px; margin-bottom: 12px; }
+  .card h3 { color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .card p  { color: #6c7aaa; font-size: 13px; line-height: 1.6; }
+  footer {
+    text-align: center; padding: 40px 24px;
+    color: #6c6c9a; font-size: 13px; border-top: 1px solid #1a1a38;
+  }
+  footer a { color: #ff6b35; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">macOS · Free · Open Source</div>
+  <h1>Echo Bike<br><span>Tracker</span></h1>
+  <p>The workout tracking app the Rogue Echo Bike v3 deserves. Live metrics,
+     training zones, personal bests and structured workouts — via Bluetooth.</p>
+  <a class="btn" href="https://github.com/richiebolger/Rogue_Echo_Bike_v3/releases">
+    Download for Mac
+  </a>
+  <a class="btn ghost" href="https://github.com/richiebolger/Rogue_Echo_Bike_v3">
+    View on GitHub
+  </a>
+</div>
+
+<div class="features">
+  <div class="card">
+    <div class="icon">⚡</div>
+    <h3>Live Metrics</h3>
+    <p>Power (W), W/kg, Cadence, Speed, Heart Rate, Calories, Distance — all updating in real time from your bike.</p>
+  </div>
+  <div class="card">
+    <div class="icon">📊</div>
+    <h3>Training Zones</h3>
+    <p>Power zones Z1–Z7 (% FTP) and HR zones via Heart Rate Reserve (Karvonen method), live on each metric card.</p>
+  </div>
+  <div class="card">
+    <div class="icon">🏋</div>
+    <h3>Workout Builder</h3>
+    <p>Build interval sessions from segments. 14 built-in templates including Tabata, FTP Test, Ramp Test, and VO2 Max intervals.</p>
+  </div>
+  <div class="card">
+    <div class="icon">🏆</div>
+    <h3>Personal Bests</h3>
+    <p>Tracks max power, best avg power, best W/kg, max HR, and lifetime distance/calories/time per rider.</p>
+  </div>
+  <div class="card">
+    <div class="icon">🧬</div>
+    <h3>VO2 Max Estimates</h3>
+    <p>Power-based (Hawley & Noakes via FTP) and HR-based (Uth formula) estimates after every session.</p>
+  </div>
+  <div class="card">
+    <div class="icon">💾</div>
+    <h3>Full Data Export</h3>
+    <p>Per-session CSV + JSON, cumulative history CSV. All data stays on your Mac — no accounts, no cloud.</p>
+  </div>
+</div>
+
+<footer>
+  <p>
+    Made by <a href="https://github.com/richiebolger">Richie Bolger</a> ·
+    <a href="privacy.html">Privacy Policy</a> ·
+    <a href="https://github.com/richiebolger/Rogue_Echo_Bike_v3">GitHub</a>
+  </p>
+  <p style="margin-top:8px;">Not affiliated with Rogue Fitness.</p>
+</footer>
+
+</body>
+</html>

@@ -40,3 +40,4 @@ build_env/
 
 # macOS app bundle (too large for git — distribute via releases)
 *.app/
+assets/certs/distribution.key
