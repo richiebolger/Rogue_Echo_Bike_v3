@@ -40,7 +40,9 @@ INDOOR_BIKE_DATA   = "00002ad2-0000-1000-8000-00805f9b34fb"
 HEART_RATE_UUID    = "00002a37-0000-1000-8000-00805f9b34fb"
 FTMS_CONTROL_UUID  = "00002ad9-0000-1000-8000-00805f9b34fb"
 
-WORKOUTS_DIR       = Path.home() / "echo_bike_workouts"
+# Mac App Store sandbox-compatible path (also works outside the sandbox)
+_APP_SUPPORT       = Path.home() / "Library" / "Application Support" / "Echo Bike Tracker"
+WORKOUTS_DIR       = _APP_SUPPORT / "workouts"
 PROFILES_FILE      = WORKOUTS_DIR / "profiles.json"
 PB_FILE            = WORKOUTS_DIR / "personal_bests.json"
 ECHO_BIKE_KEYWORDS = {"rogue", "echo", "bike", "assault"}

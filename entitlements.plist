@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- App Sandbox — required for Mac App Store -->
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+
+  <!-- Bluetooth Low Energy (FTMS data from Echo Bike) -->
+  <key>com.apple.security.bluetooth</key>
+  <true/>
+
+  <!-- Read/write files the user explicitly opens/saves -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+
+  <!-- Write to Application Support for auto-saving workout data -->
+  <key>com.apple.security.files.bookmarks.app-scope</key>
+  <true/>
+
+  <!-- Network client — needed by bleak on some paths -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

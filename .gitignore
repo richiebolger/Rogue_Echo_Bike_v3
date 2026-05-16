@@ -31,3 +31,12 @@ echo_bike_workouts/
 
 # PDF manual (large binary)
 *.pdf
+
+# PyInstaller build output
+build/
+dist/
+build_env/
+*.spec.bak
+
+# macOS app bundle (too large for git — distribute via releases)
+*.app/
